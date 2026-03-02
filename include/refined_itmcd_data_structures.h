@@ -1,0 +1,205 @@
+#pragma once
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+namespace mbes {
+
+using NodeId = std::int32_t;
+
+// Undirected graph snapshot at a specific timestamp t.
+class GraphSnapshot {
+ public:
+  GraphSnapshot() = default;
+
+  void AddNode(NodeId u) { adjacency_[u]; }
+
+  void AddEdge(NodeId u, NodeId v) {
+    if (u == v) {
+      return;
+    }
+    adjacency_[u].insert(v);
+    adjacency_[v].insert(u);
+  }
+
+  bool HasNode(NodeId u) const { return adjacency_.find(u) != adjacency_.end(); }
+
+  bool HasEdge(NodeId u, NodeId v) const {
+    auto it = adjacency_.find(u);
+    if (it == adjacency_.end()) {
+      return false;
+    }
+    return it->second.find(v) != it->second.end();
+  }
+
+  std::size_t Degree(NodeId u) const {
+    auto it = adjacency_.find(u);
+    if (it == adjacency_.end()) {
+      return 0;
+    }
+    return it->second.size();
+  }
+
+  std::vector<NodeId> Nodes() const {
+    std::vector<NodeId> nodes;
+    nodes.reserve(adjacency_.size());
+    for (const auto& [u, _] : adjacency_) {
+      nodes.push_back(u);
+    }
+    return nodes;
+  }
+
+ private:
+  std::unordered_map<NodeId, std::unordered_set<NodeId>> adjacency_;
+};
+
+// Temporal graph sequence G = {G0, ..., Gn}.
+struct TemporalGraphSequence {
+  std::vector<GraphSnapshot> snapshots;
+
+  std::size_t Size() const { return snapshots.size(); }
+  bool Empty() const { return snapshots.empty(); }
+
+  GraphSnapshot& operator[](std::size_t t) { return snapshots[t]; }
+  const GraphSnapshot& operator[](std::size_t t) const { return snapshots[t]; }
+};
+
+// Clique container used by M_prev / M_new / M_curr / P.
+struct Clique {
+  std::vector<NodeId> vertices;
+
+  Clique() = default;
+  explicit Clique(std::vector<NodeId> nodes) : vertices(std::move(nodes)) {
+    std::sort(vertices.begin(), vertices.end());
+    vertices.erase(std::unique(vertices.begin(), vertices.end()), vertices.end());
+  }
+
+  std::size_t Size() const { return vertices.size(); }
+
+  bool operator==(const Clique& other) const { return vertices == other.vertices; }
+
+  bool IsSubsetOf(const Clique& other) const {
+    return std::includes(other.vertices.begin(), other.vertices.end(),
+                         vertices.begin(), vertices.end());
+  }
+};
+
+struct CliqueHash {
+  std::size_t operator()(const Clique& c) const {
+    std::size_t seed = 0;
+    for (NodeId u : c.vertices) {
+      seed ^= std::hash<NodeId>{}(u) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    }
+    return seed;
+  }
+};
+
+// l(c) in the paper (lifetime / matched count for each clique).
+using CliqueLifetimeMap = std::unordered_map<Clique, std::int32_t, CliqueHash>;
+
+// Node change set Delta V_t between G_t and G_{t-1}.
+struct NodeDelta {
+  std::unordered_set<NodeId> inserted_nodes;
+  std::unordered_set<NodeId> removed_nodes;
+
+  bool Empty() const { return inserted_nodes.empty() && removed_nodes.empty(); }
+};
+
+// F(c) = l(c) * |c|.
+struct RankedClique {
+  Clique clique;
+  std::int32_t lifetime = 0;
+  std::int32_t score = 0;
+
+  RankedClique() = default;
+  RankedClique(Clique c, std::int32_t l)
+      : clique(std::move(c)),
+        lifetime(l),
+        score(static_cast<std::int32_t>(clique.Size()) * lifetime) {}
+};
+
+// Comparator for a min-priority queue by score.
+struct MinScoreCompare {
+  bool operator()(const RankedClique& lhs, const RankedClique& rhs) const {
+    if (lhs.score != rhs.score) {
+      return lhs.score > rhs.score;
+    }
+    if (lhs.clique.Size() != rhs.clique.Size()) {
+      return lhs.clique.Size() > rhs.clique.Size();
+    }
+    return lhs.clique.vertices > rhs.clique.vertices;
+  }
+};
+
+// Q: keep top-k cliques with the largest F(c), internally maintained as min-heap.
+class TopKCliqueQueue {
+ public:
+  explicit TopKCliqueQueue(std::size_t capacity) : capacity_(capacity) {}
+
+  std::size_t Size() const { return heap_.size(); }
+  bool Empty() const { return heap_.empty(); }
+  std::size_t Capacity() const { return capacity_; }
+
+  bool ShouldInsert(const RankedClique& item) const {
+    if (capacity_ == 0) {
+      return false;
+    }
+    if (heap_.size() < capacity_) {
+      return true;
+    }
+    const RankedClique& min_item = heap_.top();
+    return item.score > min_item.score;
+  }
+
+  void Push(const RankedClique& item) {
+    if (!ShouldInsert(item)) {
+      return;
+    }
+    heap_.push(item);
+    if (heap_.size() > capacity_) {
+      heap_.pop();
+    }
+  }
+
+  // Return cliques sorted by descending F(c).
+  std::vector<RankedClique> SortDescending() const {
+    auto copy = heap_;
+    std::vector<RankedClique> result;
+    result.reserve(copy.size());
+    while (!copy.empty()) {
+      result.push_back(copy.top());
+      copy.pop();
+    }
+    std::sort(result.begin(), result.end(), [](const RankedClique& a, const RankedClique& b) {
+      if (a.score != b.score) {
+        return a.score > b.score;
+      }
+      if (a.clique.Size() != b.clique.Size()) {
+        return a.clique.Size() > b.clique.Size();
+      }
+      return a.clique.vertices < b.clique.vertices;
+    });
+    return result;
+  }
+
+ private:
+  std::size_t capacity_ = 0;
+  std::priority_queue<RankedClique, std::vector<RankedClique>, MinScoreCompare> heap_;
+};
+
+// Working sets in each timestamp iteration.
+struct IterationWorkspace {
+  std::unordered_set<Clique, CliqueHash> m_prev;
+  std::unordered_set<Clique, CliqueHash> m_new;
+  std::unordered_set<Clique, CliqueHash> m_curr;
+  std::unordered_set<Clique, CliqueHash> p;
+};
+
+}  // namespace mbes
