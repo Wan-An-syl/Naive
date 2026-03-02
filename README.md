@@ -18,3 +18,8 @@ cmake --build build
 ./build/refined_itmcd_demo
 ./build/test_refined_itmcd
 ```
+
+## 额外说明
+
+- 支持边时间区间模型：同一条边可拥有多个不连续活跃区间（例如 `[0,1]` 与 `[4,6]`）。
+- 时间区间保存在边上（`TemporalEdgeIntervalGraph`），并可按时间窗口展开为 `TemporalGraphSequence`。

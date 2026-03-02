@@ -115,6 +115,13 @@ CliqueSet FindMaximalCliques(const GraphSnapshot& graph) {
   return out;
 }
 
+
+TemporalGraphSequence BuildTemporalGraphSequence(const TemporalEdgeIntervalGraph& graph,
+                                                 Timestamp begin,
+                                                 Timestamp end) {
+  return graph.BuildSequence(begin, end);
+}
+
 std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalGraphSequence& sequence) {
   TopKCliqueQueue q(k_);
   if (sequence.Empty() || k_ == 0) {
@@ -196,6 +203,13 @@ std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalGraphSequenc
   }
 
   return q.SortDescending();
+}
+
+
+std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalEdgeIntervalGraph& graph,
+                                                      Timestamp begin,
+                                                      Timestamp end) {
+  return Run(BuildTemporalGraphSequence(graph, begin, end));
 }
 
 }  // namespace mbes

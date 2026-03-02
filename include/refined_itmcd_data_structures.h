@@ -103,6 +103,141 @@ struct TemporalGraphSequence {
   const GraphSnapshot& operator[](Timestamp t) const { return snapshots[t]; }
 };
 
+struct TimeInterval {
+  Timestamp start = 0;
+  Timestamp end = 0;
+
+  bool Contains(Timestamp t) const { return start <= t && t <= end; }
+};
+
+struct EdgeKey {
+  NodeId u = 0;
+  NodeId v = 0;
+
+  EdgeKey() = default;
+
+  EdgeKey(NodeId a, NodeId b) {
+    if (a <= b) {
+      u = a;
+      v = b;
+    } else {
+      u = b;
+      v = a;
+    }
+  }
+
+  bool operator==(const EdgeKey& other) const { return u == other.u && v == other.v; }
+};
+
+struct EdgeKeyHash {
+  std::size_t operator()(const EdgeKey& key) const {
+    std::size_t seed = std::hash<NodeId>{}(key.u);
+    seed ^= std::hash<NodeId>{}(key.v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+    return seed;
+  }
+};
+
+class TemporalEdgeIntervalGraph {
+ public:
+  void AddNode(NodeId u) { nodes_.insert(u); }
+
+  // 时间区间存储在边上：同一条边可以拥有多个不连续区间。
+  void AddEdgeInterval(NodeId u, NodeId v, Timestamp start, Timestamp end) {
+    if (u == v || end < start) {
+      return;
+    }
+
+    nodes_.insert(u);
+    nodes_.insert(v);
+
+    auto& intervals = edge_intervals_[EdgeKey(u, v)];
+    intervals.push_back({start, end});
+    NormalizeIntervals(&intervals);
+  }
+
+  const std::vector<TimeInterval>& GetEdgeIntervals(NodeId u, NodeId v) const {
+    static const std::vector<TimeInterval> kEmpty;
+    auto it = edge_intervals_.find(EdgeKey(u, v));
+    return it == edge_intervals_.end() ? kEmpty : it->second;
+  }
+
+  bool HasEdgeAt(NodeId u, NodeId v, Timestamp t) const {
+    const auto& intervals = GetEdgeIntervals(u, v);
+    for (const auto& interval : intervals) {
+      if (interval.Contains(t)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  std::vector<NodeId> Nodes() const {
+    std::vector<NodeId> nodes(nodes_.begin(), nodes_.end());
+    std::sort(nodes.begin(), nodes.end());
+    return nodes;
+  }
+
+  GraphSnapshot BuildSnapshot(Timestamp t) const {
+    GraphSnapshot snapshot;
+    for (NodeId u : nodes_) {
+      snapshot.AddNode(u);
+    }
+
+    for (const auto& [edge, intervals] : edge_intervals_) {
+      for (const auto& interval : intervals) {
+        if (interval.Contains(t)) {
+          snapshot.AddEdge(edge.u, edge.v);
+          break;
+        }
+      }
+    }
+    return snapshot;
+  }
+
+  TemporalGraphSequence BuildSequence(Timestamp begin, Timestamp end) const {
+    TemporalGraphSequence sequence;
+    if (begin > end) {
+      return sequence;
+    }
+
+    sequence.snapshots.reserve(end - begin + 1);
+    for (Timestamp t = begin; t <= end; ++t) {
+      sequence.snapshots.push_back(BuildSnapshot(t));
+    }
+    return sequence;
+  }
+
+ private:
+  static void NormalizeIntervals(std::vector<TimeInterval>* intervals) {
+    if (intervals == nullptr || intervals->empty()) {
+      return;
+    }
+
+    std::sort(intervals->begin(), intervals->end(), [](const TimeInterval& lhs, const TimeInterval& rhs) {
+      if (lhs.start != rhs.start) {
+        return lhs.start < rhs.start;
+      }
+      return lhs.end < rhs.end;
+    });
+
+    std::vector<TimeInterval> merged;
+    merged.reserve(intervals->size());
+
+    for (const auto& interval : *intervals) {
+      if (merged.empty() || interval.start > merged.back().end + 1) {
+        merged.push_back(interval);
+      } else {
+        merged.back().end = std::max(merged.back().end, interval.end);
+      }
+    }
+
+    *intervals = std::move(merged);
+  }
+
+  std::unordered_set<NodeId> nodes_;
+  std::unordered_map<EdgeKey, std::vector<TimeInterval>, EdgeKeyHash> edge_intervals_;
+};
+
 struct Clique {
   std::vector<NodeId> vertices;
 
