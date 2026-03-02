@@ -129,6 +129,9 @@ std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalGraphSequenc
   }
 
   CliqueLifetimeMap lifetime;
+  CliqueSet m_prev = FindMaximalCliques(sequence[0]);
+
+  for (const auto& c : m_prev) {
   IterationWorkspace ws;
 
   ws.m_prev = FindMaximalCliques(sequence[0]);
@@ -138,6 +141,22 @@ std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalGraphSequenc
   }
 
   for (Timestamp t = 1; t < sequence.Size(); ++t) {
+    CliqueSet m_new = FindMaximalCliques(sequence[t]);
+    CliqueSet m_curr;
+
+    for (const auto& c_new : m_new) {
+      const bool existed_last_step = m_prev.find(c_new) != m_prev.end();
+      if (existed_last_step) {
+        lifetime[c_new] = lifetime[c_new] + 1;
+      } else {
+        lifetime[c_new] = 1;
+      }
+
+      m_curr.insert(c_new);
+      q.Push(RankedClique::Build(c_new, lifetime[c_new]));
+    }
+
+    m_prev = std::move(m_curr);
     const NodeDelta delta = GetNodeChange(sequence[t], sequence[t - 1]);
 
     ws.m_new = FindMaximalCliques(sequence[t]);
