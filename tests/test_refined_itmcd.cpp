@@ -37,11 +37,13 @@ int main() {
   seq.snapshots.push_back(g);
 
   mbes::RefinedIncrementalTopK solver(16);
+  mbes::RefinedIncrementalTopK solver(3);
   const auto res = solver.Run(seq);
   assert(!res.empty());
   assert(res.front().score >= 3);
 
   // 同一条边多个不连续时间区间。
+  // 关键场景：同一条边拥有多个不连续时间区间。
   mbes::TemporalEdgeIntervalGraph interval_graph;
   interval_graph.AddEdgeInterval(1, 2, 0, 1);
   interval_graph.AddEdgeInterval(1, 2, 4, 6);

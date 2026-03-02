@@ -146,6 +146,7 @@ CliqueSet FindMaximalCliques(const GraphSnapshot& graph) {
   return out;
 }
 
+
 TemporalGraphSequence BuildTemporalGraphSequence(const TemporalEdgeIntervalGraph& graph,
                                                  Timestamp begin,
                                                  Timestamp end) {
@@ -166,6 +167,10 @@ std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalGraphSequenc
 
   // Pseudocode line 3: initialize l(c), push first snapshot candidates
   for (const auto& c : m_prev) {
+  IterationWorkspace ws;
+
+  ws.m_prev = FindMaximalCliques(sequence[0]);
+  for (const auto& c : ws.m_prev) {
     lifetime[c] = 1;
     q.Push(RankedClique::Build(c, 1));
   }
@@ -202,6 +207,34 @@ std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalGraphSequenc
         if (c_new == c_prev) {
           lifetime[c_new] = lifetime[c_prev] + 1;
           p.insert(c_new);
+  for (Timestamp t = 1; t < sequence.Size(); ++t) {
+    const NodeDelta delta = GetNodeChange(sequence[t], sequence[t - 1]);
+
+    ws.m_new = FindMaximalCliques(sequence[t]);
+    ws.m_curr.clear();
+    ws.p.clear();
+
+    for (const auto& c_new : ws.m_new) {
+      if (!delta.Empty()) {
+        bool touches_delta = false;
+        for (NodeId u : c_new.vertices) {
+          if (delta.inserted_nodes.count(u) || delta.removed_nodes.count(u)) {
+            touches_delta = true;
+            break;
+          }
+        }
+        if (!touches_delta) {
+          // 对齐伪代码中“若 c_new 属于 P 则 continue”的剪枝思想：
+          // 增量模式下优先处理受变化影响的团。
+          continue;
+        }
+      }
+
+      bool matched = false;
+      for (const auto& c_prev : ws.m_prev) {
+        if (c_new == c_prev) {
+          lifetime[c_new] = lifetime[c_prev] + 1;
+          ws.p.insert(c_new);
           matched = true;
           break;
         }
@@ -211,6 +244,8 @@ std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalGraphSequenc
           lifetime[c_prev] = lifetime[c_prev] + 1;
           p.insert(c_new);
           p.insert(c_prev);
+          ws.p.insert(c_new);
+          ws.p.insert(c_prev);
           matched = true;
           break;
         }
@@ -238,6 +273,31 @@ std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalGraphSequenc
   // Line 23
   return q.SortDescending();
 }
+
+        ws.p.insert(c_new);
+      }
+    }
+
+    ws.m_curr = ws.m_prev;
+    for (const auto& c : ws.m_new) {
+      ws.m_curr.insert(c);
+    }
+
+    for (const auto& c : ws.m_curr) {
+      if (ws.p.find(c) == ws.p.end()) {
+        lifetime[c] = lifetime[c] + 1;
+        ws.p.insert(c);
+      }
+
+      q.Push(RankedClique::Build(c, lifetime[c]));
+    }
+
+    ws.m_prev = ws.m_curr;
+  }
+
+  return q.SortDescending();
+}
+
 
 std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalEdgeIntervalGraph& graph,
                                                       Timestamp begin,
