@@ -37,6 +37,7 @@ int main() {
   seq.snapshots.push_back(g);
 
   mbes::RefinedIncrementalTopK solver(8);
+  mbes::RefinedIncrementalTopK solver(3);
   const auto res = solver.Run(seq);
   assert(!res.empty());
   assert(res.front().score >= 3);
