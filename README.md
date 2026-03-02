@@ -23,3 +23,23 @@ cmake --build build
 
 - 支持边时间区间模型：同一条边可拥有多个不连续活跃区间（例如 `[0,1]` 与 `[4,6]`）。
 - 时间区间保存在边上（`TemporalEdgeIntervalGraph`），并可按时间窗口展开为 `TemporalGraphSequence`。
+
+- 团的生命周期按“连续时间”累计：若某团在中间时刻消失，再出现时会从 1 重新计数。
+
+
+## 伪代码行号映射清单
+
+- 行 1：`TopKCliqueQueue q(k_)` 初始化最小优先队列。  
+- 行 2：`m_prev = FindMaximalCliques(sequence[0])`。  
+- 行 3：初始化 `l(c)=1` 并推入 `Q`。  
+- 行 4：`for t in [1, n]` 主循环。  
+- 行 5：`GetNodeChange` 生成 `ΔV_t`。  
+- 行 6：`m_new` + `invalidated`（基于 `ΔV_t` 与当前快照有效性）。  
+- 行 7：`m_curr = (m_prev \ invalidated) ∪ m_new`，并初始化 `P`。  
+- 行 8-16：逐个 `c_new` 做匹配分支：  
+  - `c_new == c_prev`；  
+  - `c_prev ⊆ c_new`；  
+  - 未匹配分支。  
+- 行 17-21：遍历 `m_curr`，未在 `P` 中的团做 `l(c)+=1`，并按 `F(c)=l(c)*|c|` 更新 `Q`。  
+- 行 22：`m_prev = m_curr`。  
+- 行 23：返回 `SortDescending(Q)`。

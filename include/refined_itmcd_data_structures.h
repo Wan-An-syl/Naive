@@ -322,6 +322,8 @@ class TopKCliqueQueue {
 
   const RankedClique& Min() const { return heap_.top(); }
 
+  bool Contains(const Clique& clique) const { return in_queue_.find(clique) != in_queue_.end(); }
+
   bool ShouldInsert(const RankedClique& item) const {
     if (capacity_ == 0) {
       return false;
@@ -333,10 +335,16 @@ class TopKCliqueQueue {
   }
 
   void Push(const RankedClique& item) {
+    if (Contains(item.clique)) {
+      return;
+    }
     if (!ShouldInsert(item)) {
       return;
     }
     heap_.push(item);
+    in_queue_.insert(item.clique);
+    if (heap_.size() > capacity_) {
+      in_queue_.erase(heap_.top().clique);
     if (heap_.size() > capacity_) {
       heap_.pop();
     }
@@ -359,6 +367,7 @@ class TopKCliqueQueue {
  private:
   std::size_t capacity_ = 0;
   std::priority_queue<RankedClique, std::vector<RankedClique>, MinScoreCompare> heap_;
+  CliqueSet in_queue_;
 };
 
 struct IterationWorkspace {
