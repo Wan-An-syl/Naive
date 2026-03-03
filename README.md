@@ -4,6 +4,7 @@
 
 ## 项目结构
 
+- `include/refined_itmcd_data_structures.h`：算法数据结构层（含 `TemporalGraph` 时序图结构体、`Clique` 团结构体）
 - `include/refined_itmcd_data_structures.h`：算法数据结构层
 - `include/refined_itmcd_algorithm.h`：算法接口
 - `src/refined_itmcd_algorithm.cpp`：算法实现（含最大团搜索与增量 top-k 主流程）
@@ -43,3 +44,5 @@ cmake --build build
 - 行 17-21：遍历 `m_curr`，未在 `P` 中的团做 `l(c)+=1`，并按 `F(c)=l(c)*|c|` 更新 `Q`。  
 - 行 22：`m_prev = m_curr`。  
 - 行 23：返回 `SortDescending(Q)`。
+
+- 数据结构层显式定义了 `TemporalGraph`（时序图结构体）与 `Clique`（团结构体），便于直接与伪代码对象对应。

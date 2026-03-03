@@ -103,6 +103,17 @@ struct TemporalGraphSequence {
   const GraphSnapshot& operator[](Timestamp t) const { return snapshots[t]; }
 };
 
+// 时序图结构体：对算法输入 G={G0...Gn} 的直接封装。
+struct TemporalGraph {
+  TemporalGraphSequence sequence;
+
+  std::size_t Size() const { return sequence.Size(); }
+  bool Empty() const { return sequence.Empty(); }
+
+  GraphSnapshot& operator[](Timestamp t) { return sequence[t]; }
+  const GraphSnapshot& operator[](Timestamp t) const { return sequence[t]; }
+};
+
 struct TimeInterval {
   Timestamp start = 0;
   Timestamp end = 0;
@@ -238,6 +249,7 @@ class TemporalEdgeIntervalGraph {
   std::unordered_map<EdgeKey, std::vector<TimeInterval>, EdgeKeyHash> edge_intervals_;
 };
 
+// 团结构体：包含团节点集合及基础集合关系判断。
 struct Clique {
   std::vector<NodeId> vertices;
 
@@ -258,6 +270,16 @@ struct Clique {
   bool IsSubsetOf(const Clique& other) const {
     return std::includes(other.vertices.begin(), other.vertices.end(),
                          vertices.begin(), vertices.end());
+  }
+};
+
+// 团状态结构体：用于单独表达 l(c) 与 F(c)=l(c)*|c|。
+struct CliqueState {
+  Clique clique;
+  std::int32_t lifetime = 0;
+
+  std::int32_t Score() const {
+    return static_cast<std::int32_t>(clique.Size()) * lifetime;
   }
 };
 
