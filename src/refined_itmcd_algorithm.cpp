@@ -244,6 +244,14 @@ std::vector<RankedClique> RefinedIncrementalTopK::Run(const TemporalGraphSequenc
           lifetime[c_prev] = lifetime[c_prev] + 1;
           p.insert(c_new);
           p.insert(c_prev);
+          matched = true;
+          break;
+        }
+
+        if (c_new.IsSubsetOf(c_prev)) {
+          lifetime[c_new] = lifetime[c_prev] + 1;
+          p.insert(c_new);
+          p.insert(c_prev);
           ws.p.insert(c_new);
           ws.p.insert(c_prev);
           matched = true;

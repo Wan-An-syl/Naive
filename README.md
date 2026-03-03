@@ -40,6 +40,7 @@ cmake --build build
 - 行 8-16：逐个 `c_new` 做匹配分支：  
   - `c_new == c_prev`；  
   - `c_prev ⊆ c_new`；  
+  - `c_new ⊆ c_prev`；  
   - 未匹配分支。  
 - 行 17-21：遍历 `m_curr`，未在 `P` 中的团做 `l(c)+=1`，并按 `F(c)=l(c)*|c|` 更新 `Q`。  
 - 行 22：`m_prev = m_curr`。  

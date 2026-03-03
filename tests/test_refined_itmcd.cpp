@@ -68,6 +68,21 @@ int main() {
   assert(max_lifetime_12 <= 3);
   assert(max_lifetime_12 >= 1);
 
+
+  // 覆盖 c_new ⊂ c_prev 分支：
+  // t0: {1,2,3}
+  // t1: {1,2}
+  mbes::TemporalGraphSequence shrink_seq;
+  shrink_seq.snapshots.resize(2);
+  shrink_seq[0].AddEdge(1, 2);
+  shrink_seq[0].AddEdge(1, 3);
+  shrink_seq[0].AddEdge(2, 3);
+  shrink_seq[1].AddEdge(1, 2);
+
+  const auto shrink_res = solver.Run(shrink_seq);
+  assert(!shrink_res.empty());
+  assert(MaxLifetimeForClique(shrink_res, {1, 2}) >= 2);
+
   // 覆盖伪代码分支：
   // t0: {1,2}
   // t1: {1,2}               -> c_new == c_prev
