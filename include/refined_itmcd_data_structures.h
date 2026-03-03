@@ -367,6 +367,7 @@ class TopKCliqueQueue {
     in_queue_.insert(item.clique);
     if (heap_.size() > capacity_) {
       in_queue_.erase(heap_.top().clique);
+    if (heap_.size() > capacity_) {
       heap_.pop();
     }
   }
