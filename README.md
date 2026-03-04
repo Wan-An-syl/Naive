@@ -6,6 +6,8 @@
 
 - `include/refined_itmcd_data_structures.h`：算法数据结构层（图/时序图/团等基础结构）
 - `include/refined_itmcd_utils.h`：工具类层（`TopKCliqueQueue`、排序比较、工作集）
+- `include/refined_itmcd_data_structures.h`：算法数据结构层（含 `TemporalGraph` 时序图结构体、`Clique` 团结构体）
+- `include/refined_itmcd_data_structures.h`：算法数据结构层
 - `include/refined_itmcd_algorithm.h`：算法接口
 - `src/refined_itmcd_algorithm.cpp`：算法实现（含最大团搜索与增量 top-k 主流程）
 - `src/main.cpp`：示例程序
