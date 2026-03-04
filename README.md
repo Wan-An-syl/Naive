@@ -4,6 +4,8 @@
 
 ## 项目结构
 
+- `include/refined_itmcd_data_structures.h`：算法数据结构层（图/时序图/团等基础结构）
+- `include/refined_itmcd_utils.h`：工具类层（`TopKCliqueQueue`、排序比较、工作集）
 - `include/refined_itmcd_data_structures.h`：算法数据结构层（含 `TemporalGraph` 时序图结构体、`Clique` 团结构体）
 - `include/refined_itmcd_data_structures.h`：算法数据结构层
 - `include/refined_itmcd_algorithm.h`：算法接口
@@ -47,3 +49,5 @@ cmake --build build
 - 行 23：返回 `SortDescending(Q)`。
 
 - 数据结构层显式定义了 `TemporalGraph`（时序图结构体）与 `Clique`（团结构体），便于直接与伪代码对象对应。
+
+- 数据结构层与工具类已分离：基础实体放在 `refined_itmcd_data_structures.h`，队列/排序等工具放在 `refined_itmcd_utils.h`。

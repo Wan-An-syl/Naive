@@ -1,5 +1,6 @@
 #pragma once
 
+#include "refined_itmcd_utils.h"
 #include "refined_itmcd_data_structures.h"
 
 namespace mbes {
